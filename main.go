@@ -154,10 +154,14 @@ func itsAlive(gameBoard [][]bool, events chan termbox.Event) {
 				case termbox.KeyArrowUp:
 					if frameDuration > minFrameDuration {
 						frameDuration = frameDuration * .9
+					} else {
+						frameDuration = minFrameDuration
 					}
 				case termbox.KeyArrowDown:
 					if frameDuration < maxFrameDuration {
 						frameDuration = frameDuration * 1.1
+					} else {
+						frameDuration = maxFrameDuration
 					}
 				}
 
@@ -213,7 +217,7 @@ playGame:
 				case termbox.KeyDelete:
 					staticBoard = newBoard()
 					drawBoard(staticBoard)
-				case termbox.KeyArrowRight:
+				case termbox.KeyEnter:
 					staticBoard = nextGeneration(staticBoard)
 					drawBoard(staticBoard)
 				}
