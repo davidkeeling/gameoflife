@@ -9,20 +9,33 @@ import (
 
 var width, height int
 
-var mx, my int
+var mouseX, mouseY int
 
-var status string
+var frameDuration float64
 
 var staticBoard [][]bool
 
 const maxFrameDuration = 1000
 const minFrameDuration = 10
 
-var frameDuration float64
-
 func randCell() bool {
 	//taken from https://github.com/pennello/go_util/blob/master/fix/math/rand/rand.go:
 	return rand.Int63()&1 == 1
+}
+
+func toggleCell(x, y int) {
+	staticBoard[y][x] = !staticBoard[y][x]
+	drawBoard(staticBoard, getNeighborBoard(staticBoard))
+}
+
+func getLiveCellColor(numNeighbors int) termbox.Attribute {
+	if numNeighbors < 2 {
+		return termbox.ColorCyan
+	}
+	if numNeighbors < 4 {
+		return termbox.ColorBlue
+	}
+	return termbox.ColorYellow
 }
 
 func newBoard() [][]bool {
@@ -49,6 +62,19 @@ func newNeighborBoard() [][]int {
 		n[i] = make([]int, width)
 	}
 	return n
+}
+
+func drawBoard(b [][]bool, n [][]int) {
+	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+	for y := range b {
+		for x := range b[y] {
+			if b[y][x] {
+				color := getLiveCellColor(n[y][x])
+				termbox.SetCell(x, y, ' ', termbox.ColorDefault, color)
+			}
+		}
+	}
+	termbox.Flush()
 }
 
 func getNeighborBoard(b [][]bool) [][]int {
@@ -129,18 +155,6 @@ func nextGeneration(b [][]bool) [][]bool {
 	return newB
 }
 
-func drawBoard(b [][]bool) {
-	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
-	for y := range b {
-		for x := range b[y] {
-			if b[y][x] {
-				termbox.SetCell(x, y, ' ', termbox.ColorBlue, termbox.ColorBlue)
-			}
-		}
-	}
-	termbox.Flush()
-}
-
 func itsAlive(gameBoard [][]bool, events chan termbox.Event) {
 	for {
 		select {
@@ -168,15 +182,10 @@ func itsAlive(gameBoard [][]bool, events chan termbox.Event) {
 			}
 		default:
 			gameBoard = nextGeneration(gameBoard)
-			drawBoard(gameBoard)
+			drawBoard(gameBoard, getNeighborBoard(gameBoard))
 			time.Sleep(time.Duration(frameDuration) * time.Millisecond)
 		}
 	}
-}
-
-func toggleCell(x, y int) {
-	staticBoard[y][x] = !staticBoard[y][x]
-	drawBoard(staticBoard)
 }
 
 func main() {
@@ -186,6 +195,8 @@ func main() {
 	defer termbox.Close()
 	termbox.SetInputMode(termbox.InputEsc | termbox.InputMouse)
 
+	//Initialize channel to track keyboard/mouse events.
+	//Channel can be passed to the play loop function (itsAlive)
 	events := make(chan termbox.Event)
 	go func() {
 		for {
@@ -200,11 +211,11 @@ func main() {
 	frameDuration = 250
 
 	staticBoard = randomBoard()
-	drawBoard(staticBoard)
+	drawBoard(staticBoard, getNeighborBoard(staticBoard))
 
 playGame:
 	for {
-		mx, my = -1, -1
+		mouseX, mouseY = -1, -1
 		select {
 		case ev := <-events:
 			switch ev.Type {
@@ -216,18 +227,18 @@ playGame:
 					break playGame
 				case termbox.KeyDelete:
 					staticBoard = newBoard()
-					drawBoard(staticBoard)
+					drawBoard(staticBoard, getNeighborBoard(staticBoard))
 				case termbox.KeyEnter:
 					staticBoard = nextGeneration(staticBoard)
-					drawBoard(staticBoard)
+					drawBoard(staticBoard, getNeighborBoard(staticBoard))
 				}
 			case termbox.EventMouse:
 				if ev.Key == termbox.MouseLeft {
-					mx, my = ev.MouseX, ev.MouseY
+					mouseX, mouseY = ev.MouseX, ev.MouseY
 				}
 			}
-			if mx != -1 && my != -1 {
-				toggleCell(mx, my)
+			if mouseX != -1 && mouseY != -1 {
+				toggleCell(mouseX, mouseY)
 			}
 		}
 	}
